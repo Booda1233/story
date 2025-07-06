@@ -2,79 +2,48 @@
 <html lang="ar" dir="rtl">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>نسيج الحكايات</title>
+    <title>نسيج الحكايات </title>
     <link rel="icon" type="image/png" href="/story/favicon.png" />
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&family=Merriweather:wght@400;700&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
-      /* Custom animation for splash screen */
-      @keyframes float {
-        0% { transform: translateY(0px); }
-        50% { transform: translateY(-10px); }
-        100% { transform: translateY(0px); }
-      }
-      .animate-float {
-        animation: float 3s ease-in-out infinite;
-      }
       body {
-        background-color: #f8fafc; /* bg-slate-50 */
+        font-family: 'Cairo', sans-serif;
       }
-      .dark body {
-        background-color: #020617; /* bg-slate-900 */
+      .animate-fade-in {
+        animation: fadeIn 0.5s ease-in-out;
       }
-      .background-pattern {
-        background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2394a3b8' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
       }
     </style>
 
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Cairo', 'sans-serif'],
-              serif: ['Merriweather', 'serif'],
-            },
-            animation: {
-              'fade-in': 'fadeIn 0.5s ease-in-out',
-            },
-            keyframes: {
-              fadeIn: {
-                '0%': { opacity: 0, transform: 'translateY(10px)' },
-                '100%': { opacity: 1, transform: 'translateY(0)' },
-              }
-            }
-          },
-        },
-      }
-    </script>
-
-
-
-    <link rel="stylesheet" href="/index.css">
-    <script type="importmap">
-    {
-      "imports": {
-        "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
-        "react-router-dom": "https://esm.sh/react-router-dom@^7.6.3",
-        "react/": "https://esm.sh/react@^19.1.0/",
-        "react": "https://esm.sh/react@^19.1.0",
-        "@google/genai": "https://esm.sh/@google/genai@^1.7.0",
-        "lucide-react": "https://esm.sh/lucide-react@^0.525.0"
-      }
-    }
-    </script>
-    <script type="module" crossorigin src="/story/assets/index-DZSIJzwF.js"></script>
-    <link rel="modulepreload" crossorigin href="/story/assets/vendor-B861TBLW.js">
-    <link rel="modulepreload" crossorigin href="/story/assets/react-DQJ6Sioy.js">
-  </head>
-  <body class="text-slate-800 dark:text-slate-100 font-sans background-pattern transition-colors duration-300">
+<link rel="stylesheet" href="/index.css">
+  <script type="importmap">
+{
+  "imports": {
+    "react-router-dom": "https://esm.sh/react-router-dom@^7.6.3",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "react": "https://esm.sh/react@^19.1.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.8.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.525.0",
+    "react-dom": "https://esm.sh/react-dom@^19.1.0",
+    "framer-motion": "https://esm.sh/framer-motion@^11.0.0"
+  }
+}
+</script>
+  <script type="module" crossorigin src="/story/assets/index-Cguj1EHk.js"></script>
+  <link rel="modulepreload" crossorigin href="/story/assets/vendor-CDrYk7GO.js">
+  <link rel="modulepreload" crossorigin href="/story/assets/react-DcLYiUWS.js">
+</head>
+  <body class="bg-gray-900 text-white">
     <div id="root"></div>
+    <div id="toast-root"></div>
   </body>
 </html>
