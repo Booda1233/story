@@ -1,16 +1,38 @@
+export interface User {
+  id: string;
+  name: string;
+  avatar: string;
+}
+
 export interface Comment {
   id: string;
-  author: string;
   text: string;
+  user: User;
+  createdAt: string;
+}
+
+export interface Like {
+  userId: string;
+  createdAt: string;
 }
 
 export interface Story {
-  id:string;
+  id: string;
   title: string;
-  author: string;
-  category: string;
-  coverImage: string;
   content: string;
-  likedBy: string[];
+  author: User;
+  category: string;
+  image?: string;
+  createdAt: string;
+  views: number;
+  likes: Like[];
   comments: Comment[];
+}
+
+export type ToastType = 'success' | 'error' | 'info';
+
+export interface Toast {
+  id: string;
+  message: string;
+  type: ToastType;
 }

@@ -1,146 +1,67 @@
-import React, { useCallback, FC, useState, useEffect } from 'react';
-import { HashRouter, Routes, Route, useNavigate } from 'react-router-dom';
-import { Story } from './types';
+import React from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import Header from './components/Header';
+import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
-import StoryDetailPage from './pages/StoryDetailPage';
-import DashboardPage from './pages/DashboardPage';
+import StoryPage from './pages/StoryPage';
+import CreatePage from './pages/CreatePage';
+import GeneratePage from './pages/GeneratePage';
 import ProfilePage from './pages/ProfilePage';
-import ReadingListPage from './pages/ReadingListPage';
-import { initialStories } from './constants';
-import usePersistentState from './hooks/usePersistentState';
-import { UserProvider, useUser } from './context/UserContext';
-import { ThemeProvider } from './context/ThemeContext';
-import AuthGate from './components/AuthGate';
-import SplashScreen from './components/SplashScreen';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import LoginPage from './pages/LoginPage';
+import Spinner from './components/Spinner';
+import EditStoryPage from './pages/EditStoryPage';
+import { ToastProvider } from './contexts/ToastContext';
+import ToastContainer from './components/ToastContainer';
+import { AnimatePresence } from 'framer-motion';
 
-const AppContent: FC = () => {
-  const { user } = useUser();
-  const [stories, setStories] = usePersistentState<Story[]>('stories', initialStories);
-  const [showSplash, setShowSplash] = useState(true);
+const AppContent = () => {
+    const location = useLocation();
+    return (
+        <AnimatePresence mode="wait">
+            <Routes location={location} key={location.pathname}>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/story/:id" element={<StoryPage />} />
+                <Route path="/story/:id/edit" element={<EditStoryPage />} />
+                <Route path="/create" element={<CreatePage />} />
+                <Route path="/generate" element={<GeneratePage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+            </Routes>
+        </AnimatePresence>
+    )
+}
 
-  useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 2500);
-    return () => clearTimeout(timer);
-  }, []);
+const AuthGate = () => {
+    const { user, loading } = useAuth();
 
-  const handleAddStory = (newStoryData: Omit<Story, 'id' | 'likedBy' | 'comments' | 'author'>) => {
-    if (!user) return;
-    const newStory: Story = {
-      ...newStoryData,
-      id: Date.now().toString(),
-      author: user,
-      likedBy: [],
-      comments: [],
-    };
-    setStories(prevStories => [newStory, ...prevStories]);
-  };
-
-  const handleEditStory = (updatedStory: Story) => {
-    setStories(prevStories =>
-      prevStories.map(story => (story.id === updatedStory.id ? updatedStory : story))
-    );
-  };
-
-  const handleDeleteStory = (storyId: string): boolean => {
-    if (window.confirm('هل أنت متأكد من أنك تريد حذف هذه القصة؟ لا يمكن التراجع عن هذا الإجراء.')) {
-        setStories(prevStories => prevStories.filter(story => story.id !== storyId));
-        return true;
+    if (loading) {
+        return <div className="flex justify-center items-center h-screen bg-gray-900"><Spinner size="16" /></div>;
     }
-    return false;
-  };
 
-  const handleLike = (storyId: string) => {
     if (!user) {
-      alert('الرجاء تسجيل الدخول لتتمكن من الإعجاب بالقصة.');
-      return;
+        return <LoginPage />;
     }
-    setStories(prevStories =>
-      prevStories.map(story => {
-        if (story.id === storyId) {
-          const alreadyLiked = story.likedBy.includes(user);
-          const newLikedBy = alreadyLiked
-            ? story.likedBy.filter(name => name !== user)
-            : [...story.likedBy, user];
-          return { ...story, likedBy: newLikedBy };
-        }
-        return story;
-      })
+
+    return (
+        <div className="flex flex-col min-h-screen bg-gray-900 text-gray-100">
+            <Header />
+            <main className="flex-grow container mx-auto px-4 py-8">
+               <AppContent />
+            </main>
+            <Footer />
+        </div>
     );
-  };
+}
 
-  const handleAddComment = (storyId: string, commentText: string) => {
-    if (!user) {
-      alert('الرجاء تسجيل الدخول لتتمكن من إضافة تعليق.');
-      return;
-    }
-    setStories(prevStories =>
-      prevStories.map(story => {
-        if (story.id === storyId) {
-          const newComment = {
-            id: `${storyId}-${Date.now()}`,
-            author: user,
-            text: commentText,
-          };
-          return { ...story, comments: [newComment, ...story.comments] };
-        }
-        return story;
-      })
-    );
-  };
-  
-  if (showSplash) {
-      return <SplashScreen />;
-  }
-
-  if (!user) {
-    return <AuthGate />;
-  }
-
+function App() {
   return (
-      <div className="min-h-screen">
-        <Header />
-        <main className="container mx-auto px-4 py-8">
-          <Routes>
-            <Route path="/" element={<HomePage stories={stories} />} />
-            <Route path="/profile/:authorName" element={<ProfilePage stories={stories} />} />
-             <Route path="/reading-list" element={<ReadingListPage stories={stories} />} />
-            <Route
-              path="/story/:id"
-              element={
-                <StoryDetailPage
-                  stories={stories}
-                  onLike={handleLike}
-                  onAddComment={handleAddComment}
-                  onDelete={handleDeleteStory}
-                />
-              }
-            />
-            <Route
-              path="/create"
-              element={<DashboardPage onAddStory={handleAddStory} stories={stories} />}
-            />
-             <Route
-              path="/edit/:id"
-              element={<DashboardPage onEditStory={handleEditStory} stories={stories} />}
-            />
-          </Routes>
-        </main>
-      </div>
+    <ToastProvider>
+        <AuthProvider>
+            <AuthGate />
+            <ToastContainer />
+        </AuthProvider>
+    </ToastProvider>
   );
-};
-
-
-const App: React.FC = () => {
-  return (
-    <HashRouter>
-      <ThemeProvider>
-        <UserProvider>
-          <AppContent />
-        </UserProvider>
-      </ThemeProvider>
-    </HashRouter>
-  );
-};
+}
 
 export default App;

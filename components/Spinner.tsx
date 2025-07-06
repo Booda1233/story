@@ -1,14 +1,10 @@
 
 import React from 'react';
 
-const Spinner: React.FC<{ size?: string }> = ({ size = 'h-8 w-8' }) => {
+const Spinner = ({ size = '8' }: { size?: string }) => {
+  const sizeClasses = `h-${size} w-${size}`;
   return (
-    <div
-      className={`${size} animate-spin rounded-full border-4 border-slate-500 border-t-indigo-400`}
-      role="status"
-    >
-      <span className="sr-only">Loading...</span>
-    </div>
+    <div className={`animate-spin rounded-full ${sizeClasses} border-b-2 border-t-2 border-amber-500`}></div>
   );
 };
 

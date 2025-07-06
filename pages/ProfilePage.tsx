@@ -1,78 +1,178 @@
-import React, { useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Story } from '../types';
-import StoryCard from '../components/StoryCard';
-import { User, Heart, MessageCircle, BookOpen } from 'lucide-react';
+import { fetchStories, deleteStory } from '../services/storyService';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import Spinner from '../components/Spinner';
+import { Heart, MessageSquare, BookOpen, LogOut, Camera, Pencil, Trash2, PlusCircle } from 'lucide-react';
+import AnimatedPage from '../AnimatedPage';
 
-interface ProfilePageProps {
-  stories: Story[];
-}
+const ProfilePage: React.FC = () => {
+    const { user, logout, updateAvatar } = useAuth();
+    const { showToast } = useToast();
+    const navigate = useNavigate();
+    const [allStories, setAllStories] = useState<Story[]>([]);
+    const [loading, setLoading] = useState(true);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-const ProfilePage: React.FC<ProfilePageProps> = ({ stories }) => {
-  const { authorName } = useParams<{ authorName: string }>();
+    useEffect(() => {
+        const loadData = async () => {
+            setLoading(true);
+            try {
+                const stories = await fetchStories();
+                setAllStories(stories);
+            } catch (error) {
+                console.error("Failed to load stories for profile", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
+    }, []);
 
-  const authorStories = useMemo(
-    () => stories.filter(story => story.author === authorName),
-    [stories, authorName]
-  );
+    const handleLogout = () => {
+        logout();
+        navigate('/'); 
+    };
+    
+    const handleAvatarClick = () => {
+        fileInputRef.current?.click();
+    };
 
-  const stats = useMemo(() => {
-    return authorStories.reduce(
-      (acc, story) => {
-        acc.likes += story.likedBy.length;
-        acc.comments += story.comments.length;
-        return acc;
-      },
-      { likes: 0, comments: 0 }
-    );
-  }, [authorStories]);
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+                const base64String = reader.result as string;
+                await updateAvatar(base64String);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+    
+    const handleDeleteStory = async (storyId: string) => {
+        if (!user) return;
+        if (window.confirm("هل أنت متأكد أنك تريد حذف هذه القصة؟")) {
+            try {
+                await deleteStory(storyId, user.id);
+                setAllStories(prevStories => prevStories.filter(s => s.id !== storyId));
+                showToast("تم حذف القصة بنجاح", "success");
+            } catch (err) {
+                const message = err instanceof Error ? err.message : "فشل حذف القصة.";
+                showToast(message, "error");
+            }
+        }
+    };
 
-  return (
-    <div className="animate-fade-in">
-      <div className="bg-white dark:bg-slate-800/50 p-8 rounded-lg mb-12 shadow-lg border border-slate-200 dark:border-slate-800">
-        <div className="flex flex-col sm:flex-row items-center gap-6">
-          <div className="bg-indigo-500 rounded-full h-24 w-24 flex items-center justify-center text-white shrink-0">
-            <User className="h-12 w-12" />
-          </div>
-          <div className="text-center sm:text-right">
-            <h1 className="text-4xl font-bold text-slate-900 dark:text-white">{authorName}</h1>
-            <p className="text-slate-500 dark:text-slate-400 text-lg">مؤلف في نسيج الحكايات</p>
-            <div className="mt-4 flex flex-wrap items-center justify-center sm:justify-start gap-x-6 gap-y-2 text-slate-600 dark:text-slate-300">
-              <div className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
-                <span className="font-semibold">{authorStories.length}</span> قصة
-              </div>
-              <div className="flex items-center gap-2">
-                <Heart className="h-5 w-5 text-red-500 dark:text-red-400" />
-                <span className="font-semibold">{stats.likes}</span> إعجاب
-              </div>
-              <div className="flex items-center gap-2">
-                <MessageCircle className="h-5 w-5 text-sky-500 dark:text-sky-400" />
-                <span className="font-semibold">{stats.comments}</span> تعليق
-              </div>
+    if (loading) {
+        return <div className="flex justify-center items-center h-64"><Spinner size="16" /></div>;
+    }
+    
+    if (!user) {
+        return <p className="text-center mt-10">الرجاء تسجيل الدخول لعرض الملف الشخصي.</p>;
+    }
+
+    const myStories = allStories.filter(story => story.author.id === user.id);
+    const likedStories = allStories.filter(story => story.likes.some(like => like.userId === user.id));
+    const commentedStories = allStories.filter(story => story.comments.some(comment => comment.user.id === user.id));
+    
+    const StoryListItem: React.FC<{ story: Story, isAuthor: boolean }> = ({ story, isAuthor }) => (
+        <div className="block bg-gray-800 p-3 rounded-lg hover:bg-gray-700 transition-colors group">
+            <div className="flex items-center justify-between gap-4">
+                 <Link to={`/story/${story.id}`} className="flex items-center gap-3 flex-grow min-w-0">
+                    <img src={story.image || `https://picsum.photos/seed/${story.id}/200/200`} alt={story.title} className="w-14 h-14 rounded-md object-cover flex-shrink-0"/>
+                    <div className="min-w-0">
+                        <h4 className="font-bold text-white truncate">{story.title}</h4>
+                        <p className="text-sm text-gray-400">بواسطة {isAuthor ? 'أنت' : story.author.name}</p>
+                    </div>
+                </Link>
+                {isAuthor && (
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        <Link to={`/story/${story.id}/edit`} className="p-2 rounded-full hover:bg-blue-500/20 text-blue-400 transition-colors">
+                            <Pencil size={18}/>
+                        </Link>
+                        <button onClick={() => handleDeleteStory(story.id)} className="p-2 rounded-full hover:bg-red-500/20 text-red-400 transition-colors">
+                            <Trash2 size={18}/>
+                        </button>
+                    </div>
+                )}
             </div>
-          </div>
         </div>
-      </div>
+    );
+    
+    const EmptyState: React.FC<{icon: React.ReactNode, text: string, ctaText: string, ctaLink: string}> = ({icon, text, ctaText, ctaLink}) => (
+        <div className="text-center py-8 px-4">
+            <div className="mx-auto w-16 h-16 flex items-center justify-center bg-gray-700/50 rounded-full text-amber-400 mb-4">
+                {icon}
+            </div>
+            <p className="text-gray-400 mb-4">{text}</p>
+            <Link to={ctaLink} className="inline-flex items-center gap-2 bg-amber-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-amber-600 transition-colors">
+                <PlusCircle size={18} />
+                <span>{ctaText}</span>
+            </Link>
+        </div>
+    );
 
-      <h2 className="text-3xl font-bold mb-8">قصص بقلم {authorName}</h2>
-      
-      {authorStories.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-          {authorStories.map(story => (
-            <StoryCard key={story.id} story={story} />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-16 px-6 bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
-          <BookOpen className="mx-auto h-16 w-16 text-slate-400 dark:text-slate-500 mb-4" />
-          <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-300">
-            لم يقم {authorName} بنشر أي قصص بعد.
-          </h3>
-        </div>
-      )}
-    </div>
-  );
+    return (
+        <AnimatedPage>
+            <div className="max-w-5xl mx-auto">
+                <div className="bg-gray-800 rounded-lg shadow-xl p-8 mb-8 flex flex-col md:flex-row items-center gap-8">
+                    <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
+                        <img src={user.avatar} alt={user.name} className="w-32 h-32 rounded-full border-4 border-amber-400 object-cover group-hover:opacity-70 transition-opacity" />
+                        <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Camera className="text-white h-8 w-8" />
+                        </div>
+                        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                    </div>
+                    <div className="flex-grow text-center md:text-right">
+                        <h1 className="text-4xl font-bold text-white">{user.name}</h1>
+                        <p className="text-lg text-gray-300 mt-1">مرحباً بك في صفحتك الشخصية</p>
+                    </div>
+                    <button onClick={handleLogout} className="mt-4 md:mt-0 flex items-center gap-2 bg-red-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-700 transition-colors">
+                        <LogOut size={20}/>
+                        <span>تسجيل الخروج</span>
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+                        <h3 className="text-2xl font-bold text-amber-400 mb-4 flex items-center gap-2"><BookOpen/> قصصي</h3>
+                        <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                            {myStories.length > 0 ? (
+                                myStories.map(story => <StoryListItem key={`my-${story.id}`} story={story} isAuthor={true} />)
+                            ) : (
+                            <EmptyState icon={<BookOpen size={24} />} text="لم تقم بنشر أي قصة بعد." ctaText="اكتب قصتك الأولى" ctaLink="/create" />
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+                        <h3 className="text-2xl font-bold text-amber-400 mb-4 flex items-center gap-2"><Heart className="text-red-500"/> أعجبني</h3>
+                        <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                            {likedStories.length > 0 ? (
+                                likedStories.map(story => <StoryListItem key={`liked-${story.id}`} story={story} isAuthor={story.author.id === user.id} />)
+                            ) : (
+                                <EmptyState icon={<Heart size={24} />} text="لم تعجب بأي قصة بعد." ctaText="تصفح القصص" ctaLink="/" />
+                            )}
+                        </div>
+                    </div>
+                    
+                    <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+                        <h3 className="text-2xl font-bold text-amber-400 mb-4 flex items-center gap-2"><MessageSquare className="text-blue-400"/> تعليقاتي</h3>
+                        <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                            {[...new Map(commentedStories.map(item => [item.id, item])).values()].length > 0 ? (
+                                [...new Map(commentedStories.map(item => [item.id, item])).values()].map(story => <StoryListItem key={`commented-${story.id}`} story={story} isAuthor={story.author.id === user.id} />)
+                            ) : (
+                                <EmptyState icon={<MessageSquare size={24} />} text="لم تعلق على أي قصة بعد." ctaText="تصفح القصص" ctaLink="/" />
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </AnimatedPage>
+    );
 };
 
 export default ProfilePage;

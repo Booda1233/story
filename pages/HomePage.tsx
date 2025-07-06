@@ -1,161 +1,198 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Story } from '../types';
+import { fetchStories } from '../services/storyService';
 import StoryCard from '../components/StoryCard';
-import { Link } from 'react-router-dom';
-import { PlusCircle, BookDashed, Search, X, TrendingUp, BookOpen } from 'lucide-react';
-import { storyCategories } from '../constants';
+import StoryCardSkeleton from '../components/StoryCardSkeleton';
+import { Search, Tag } from 'lucide-react';
+import { STORY_CATEGORIES } from '../constants';
+import { motion } from 'framer-motion';
+import AnimatedPage from '../AnimatedPage';
 
-interface HomePageProps {
-  stories: Story[];
-}
+const HomePage: React.FC = () => {
+    const [stories, setStories] = useState<Story[]>([]);
+    const [loading, setLoading] = useState<boolean>(true);
+    const [error, setError] = useState<string | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
 
-const HomePage: React.FC<HomePageProps> = ({ stories }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState('الكل');
+    const searchQuery = searchParams.get('search') || '';
+    const activeCategory = searchParams.get('category') || 'الكل';
 
-  const trendingStories = useMemo(() => {
-    return [...stories]
-      .sort((a, b) => {
-        const scoreA = a.likedBy.length * 2 + a.comments.length;
-        const scoreB = b.likedBy.length * 2 + b.comments.length;
-        return scoreB - scoreA;
-      })
-      .slice(0, 4);
-  }, [stories]);
+    useEffect(() => {
+        const loadStories = async () => {
+            try {
+                setLoading(true);
+                const fetchedStories = await fetchStories();
+                setStories(fetchedStories);
+            } catch (err) {
+                setError('فشل في تحميل القصص. الرجاء المحاولة مرة أخرى.');
+            } finally {
+                setLoading(false);
+            }
+        };
 
-  const filteredStories = useMemo(() => {
-    let tempStories = stories;
+        loadStories();
+    }, []);
 
-    // Filter by category
-    if (activeCategory !== 'الكل') {
-      tempStories = tempStories.filter(story => story.category === activeCategory);
+    const handleCategoryChange = (category: string) => {
+        setSearchParams(params => {
+            if (category === 'الكل') {
+                params.delete('category');
+            } else {
+                params.set('category', category);
+            }
+            return params;
+        });
+    };
+
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newSearchQuery = e.target.value;
+        setSearchParams(params => {
+            if (newSearchQuery) {
+                params.set('search', newSearchQuery);
+            } else {
+                params.delete('search');
+            }
+            return params;
+        });
+    };
+
+    const filteredStories = useMemo(() => {
+        return stories
+            .filter(story => {
+                if (activeCategory === 'الكل') return true;
+                return story.category === activeCategory;
+            })
+            .filter(story => {
+                if (!searchQuery) return true;
+                const query = searchQuery.toLowerCase();
+                return (
+                    story.title.toLowerCase().includes(query) ||
+                    story.author.name.toLowerCase().includes(query)
+                );
+            });
+    }, [stories, searchQuery, activeCategory]);
+
+    const trendingStories = [...filteredStories]
+      .sort((a, b) => (b.views + b.likes.length * 5) - (a.views + a.likes.length * 5))
+      .slice(0, 3);
+
+    const otherStories = filteredStories.filter(story => !trendingStories.find(t => t.id === story.id));
+
+    if (error) {
+        return <div className="text-center text-red-500">{error}</div>;
     }
+    
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1,
+            },
+        },
+    };
 
-    // Filter by search query
-    if (searchQuery.trim() !== '') {
-      const lowercasedQuery = searchQuery.toLowerCase();
-      tempStories = tempStories.filter(story =>
-        story.title.toLowerCase().includes(lowercasedQuery) ||
-        story.content.toLowerCase().includes(lowercasedQuery)
-      );
-    }
+    const itemVariants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: {
+            y: 0,
+            opacity: 1,
+        },
+    };
 
-    return tempStories;
-  }, [stories, searchQuery, activeCategory]);
-
-  const allCategories = ['الكل', ...storyCategories];
-
-  return (
-    <div className="animate-fade-in space-y-16">
-      <div className="text-center pt-8 pb-12 px-4">
-        <h1 className="text-5xl md:text-6xl font-black text-slate-900 dark:text-slate-100 mb-4">
-          أطلق العنان لـ
-          <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-500 to-cyan-500 dark:from-indigo-400 dark:to-cyan-400">
-            خيالك
-          </span>
-        </h1>
-        <p className="max-w-2xl mx-auto text-lg text-slate-600 dark:text-slate-400 mb-8">
-          منصة عربية مدعومة بالذكاء الاصطناعي لإنشاء ومشاركة قصص فريدة. اكتب عنوانًا، ودع السحر يبدأ.
-        </p>
-        <Link 
-          to="/create" 
-          className="inline-flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-500 transition-transform transform hover:scale-105 shadow-lg hover:shadow-indigo-500/50"
-        >
-          <PlusCircle className="h-6 w-6" />
-          <span>أنشئ قصتك الآن</span>
-        </Link>
-      </div>
-      
-      {trendingStories.length > 0 && (
-          <section>
-            <div className="flex items-center gap-3 mb-8">
-                <TrendingUp className="h-8 w-8 text-indigo-500 dark:text-indigo-400" />
-                <h2 className="text-3xl font-bold">القصص الأكثر رواجًا</h2>
-            </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                {trendingStories.map(story => (
-                    <StoryCard key={story.id} story={story} />
-                ))}
-            </div>
-          </section>
-      )}
-
-      <div>
-        <div className="flex items-center gap-3 mb-8">
-            <BookOpen className="h-8 w-8 text-indigo-500 dark:text-indigo-400" />
-            <h2 className="text-3xl font-bold">كل القصص</h2>
-        </div>
-
-        <div className="mb-10 space-y-6 p-6 bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
-            {/* Search Input */}
-            <div className="relative max-w-lg mx-auto">
-                <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="ابحث عن قصة..."
-                    className="w-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-full py-3 pr-12 pl-12 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
-                />
-                <div className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 pointer-events-none">
-                    <Search className="h-5 w-5" />
+    return (
+        <AnimatedPage>
+            <div className="space-y-12">
+                {/* Search and Filter */}
+                <div className="space-y-6">
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="ابحث عن قصة أو مؤلف..."
+                            value={searchQuery}
+                            onChange={handleSearchChange}
+                            className="w-full bg-gray-800 border border-gray-700 rounded-full py-3 pr-12 pl-4 text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                        <div className="absolute top-1/2 right-4 transform -translate-y-1/2 text-gray-400">
+                            <Search size={20} />
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <Tag size={20} className="text-amber-400"/>
+                        <button
+                            onClick={() => handleCategoryChange('الكل')}
+                            className={`px-3 py-1 text-sm rounded-full transition-colors ${activeCategory === 'الكل' ? 'bg-amber-500 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
+                        >
+                            الكل
+                        </button>
+                        {STORY_CATEGORIES.map(cat => (
+                             <button
+                                key={cat}
+                                onClick={() => handleCategoryChange(cat)}
+                                className={`px-3 py-1 text-sm rounded-full transition-colors ${activeCategory === cat ? 'bg-amber-500 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
                 </div>
-                {searchQuery && (
-                    <button 
-                        onClick={() => setSearchQuery('')} 
-                        className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400 hover:text-slate-700 dark:hover:text-white"
-                        aria-label="مسح البحث"
-                    >
-                        <X className="h-5 w-5" />
-                    </button>
-                )}
-            </div>
-            {/* Category Filters */}
-            <div className="flex flex-wrap items-center justify-center gap-2">
-                {allCategories.map(category => (
-                    <button
-                        key={category}
-                        onClick={() => setActiveCategory(category)}
-                        className={`px-4 py-2 text-sm font-medium rounded-full transition-colors duration-200 ${
-                            activeCategory === category
-                            ? 'bg-indigo-600 text-white shadow-md'
-                            : 'bg-slate-200 dark:bg-slate-700/50 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700'
-                        }`}
-                    >
-                        {category}
-                    </button>
-                ))}
-            </div>
-        </div>
 
-        {filteredStories.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {filteredStories.map(story => (
-                <StoryCard key={story.id} story={story} />
-            ))}
-            </div>
-        ) : (
-            <div className="text-center py-16 px-6 bg-white dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-800">
-                <BookDashed className="mx-auto h-16 w-16 text-slate-400 dark:text-slate-500 mb-4" />
-                <h3 className="text-xl font-semibold text-slate-700 dark:text-slate-300">
-                    {stories.length === 0 ? "لم يتم نشر أي قصص بعد" : "لا توجد قصص تطابق بحثك"}
-                </h3>
-                <p className="text-slate-500 dark:text-slate-400 mt-2">
-                    {stories.length === 0 ? "كن أول من يبدع قصة جديدة!" : "جرّب البحث بكلمات أخرى أو تغيير التصنيف."}
-                </p>
-                {stories.length === 0 && (
-                    <Link 
-                    to="/create" 
-                    className="mt-6 inline-flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-500 transition-transform transform hover:scale-105"
-                    >
-                    <PlusCircle className="h-5 w-5" />
-                    <span>أنشئ قصة الآن</span>
-                    </Link>
+                {loading ? (
+                    <div>
+                        <div className="h-8 w-48 bg-gray-700 rounded-md animate-pulse mb-6"></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                            {[...Array(6)].map((_, i) => <StoryCardSkeleton key={i} />)}
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        {trendingStories.length > 0 && activeCategory === 'الكل' && !searchQuery && (
+                            <div>
+                                <h1 className="text-3xl font-bold text-amber-400 border-b-2 border-amber-400 pb-2 mb-6">الأكثر رواجاً</h1>
+                                <motion.div 
+                                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+                                    variants={containerVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                >
+                                    {trendingStories.map(story => (
+                                        <motion.div key={story.id} variants={itemVariants}>
+                                            <StoryCard story={story} />
+                                        </motion.div>
+                                    ))}
+                                </motion.div>
+                            </div>
+                        )}
+                    
+                        <div>
+                            <h2 className="text-3xl font-bold text-white pb-2 mb-6">
+                                {searchQuery ? `نتائج البحث` : activeCategory !== 'الكل' ? `قصص في تصنيف "${activeCategory}"` : 'أحدث القصص'}
+                            </h2>
+                            {otherStories.length > 0 ? (
+                                <motion.div 
+                                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+                                    variants={containerVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                >
+                                    {otherStories.map(story => (
+                                        <motion.div key={story.id} variants={itemVariants}>
+                                            <StoryCard story={story} />
+                                        </motion.div>
+                                    ))}
+                                </motion.div>
+                            ) : (
+                                <div className="text-center py-10 bg-gray-800 rounded-lg">
+                                    <p className="text-gray-400">لم يتم العثور على قصص تطابق المعايير المحددة.</p>
+                                </div>
+                            )}
+                        </div>
+                    </>
                 )}
             </div>
-        )}
-      </div>
-    </div>
-  );
+        </AnimatedPage>
+    );
 };
 
 export default HomePage;

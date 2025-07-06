@@ -1,6 +1,5 @@
 {
-  "name": "Story Weave AI",
-  "description": "An interactive platform, translated to Arabic, to create, share, and experience AI-generated stories with community features like comments, likes, and text-to-speech narration.",
-  "requestFramePermissions": [],
-  "prompt": ""
+  "name": "حكايات - منصة القصص",
+  "description": "منصة تفاعلية لنشر وقراءة القصص، مع ميزات اجتماعية وتوليد قصص بالذكاء الاصطناعي. اكتشف عوالم جديدة وشارك إبداعاتك مع مجتمع القراء والكتاب.",
+  "requestFramePermissions": []
 }

@@ -1,33 +1,54 @@
+
 import { GoogleGenAI } from "@google/genai";
+import { STORY_CATEGORIES } from "../constants";
 
 if (!process.env.API_KEY) {
-  // This is a client-side app, so we can't truly hide the key.
-  // We rely on the environment setup to provide it.
-  console.error("API_KEY environment variable not set.");
+  console.warn("API_KEY environment variable not set. AI features will be disabled.");
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
-export async function generateStory(title: string): Promise<string> {
-  const prompt = `بصفتك روائي خبير في كتابة القصص الخيالية باللغة العربية، قم بتأليف قصة طويلة وعميقة (حوالي 700-800 كلمة) بناءً على العنوان التالي: "${title}".
-
-ركز على النقاط التالية:
-1.  **تطوير الشخصيات**: أعطِ الشخصيات الرئيسية عمقاً ودوافع واضحة.
-2.  **بناء العالم**: صف البيئة والأجواء بتفاصيل غنية تجعل القارئ يغوص في عالم القصة.
-3.  **حبكة متصاعدة**: ابدأ بمقدمة هادئة، ثم أدخل الصراع أو الحدث الرئيسي، وصولاً إلى ذروة مثيرة.
-4.  **نهاية مرضية**: اختتم القصة بنهاية مؤثرة، حكيمة، أو غير متوقعة، تترك أثراً في نفس القارئ.
-
-يجب أن تكون القصة باللغة العربية الفصحى، ومناسبة لجميع الأعمار.
-أرجع القصة فقط كنص عادي بدون أي تنسيق إضافي.`;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash-preview-04-17',
-      contents: prompt,
-    });
-    return response.text;
-  } catch (error) {
-    console.error("Error generating story from Gemini API:", error);
-    throw new Error("Failed to generate story content.");
+export const generateStoryFromPrompt = async (prompt: string): Promise<{ title: string; content: string; category: string; }> => {
+  if (!process.env.API_KEY) {
+    throw new Error("API key is not configured. Cannot generate story.");
   }
-}
+  
+  try {
+    const categoriesString = STORY_CATEGORIES.join(', ');
+    const fullPrompt = `Based on the following idea: "${prompt}", generate a short story in Arabic. Provide the response as a single JSON object with three keys: "title" (in Arabic), "content" (in Arabic), and "category". For the "category", choose the most relevant one from this list: [${categoriesString}]. Do not include any other text or markdown formatting.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash-preview-04-17",
+      contents: fullPrompt,
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0.7,
+      },
+    });
+
+    let jsonStr = response.text.trim();
+    const fenceRegex = /^```(\w*)?\s*\n?(.*?)\n?\s*```$/s;
+    const match = jsonStr.match(fenceRegex);
+    if (match && match[2]) {
+      jsonStr = match[2].trim();
+    }
+    
+    const parsedData = JSON.parse(jsonStr);
+
+    if (parsedData.title && parsedData.content && parsedData.category) {
+      // Validate if the category is one of the allowed ones.
+      const foundCategory = STORY_CATEGORIES.find(c => c.toLowerCase() === parsedData.category.toLowerCase());
+      return {
+        title: parsedData.title,
+        content: parsedData.content,
+        category: foundCategory || STORY_CATEGORIES[0], // Default to the first category if not found
+      };
+    } else {
+      throw new Error("Invalid JSON structure in AI response.");
+    }
+
+  } catch (error) {
+    console.error("Error generating story with Gemini:", error);
+    throw new Error("فشل توليد القصة. الرجاء المحاولة مرة أخرى.");
+  }
+};
